@@ -1,148 +1,186 @@
-[![PyPI](https://img.shields.io/pypi/v/cheat.svg)](https://pypi.python.org/pypi/cheat/)
+# cheat
 
-cheat
-=====
-`cheat` allows you to create and view interactive cheatsheets on the
-command-line. It was designed to help remind \*nix system administrators of
-options for commands that they use frequently, but not frequently enough to
-remember.
+`cheat` is a small Bash command-line tool for creating and viewing personal
+cheatsheets. It includes bundled sheets and supports custom sheet directories,
+nested sheet names, search, editing, and optional syntax highlighting.
 
-![The obligatory xkcd](http://imgs.xkcd.com/comics/tar.png 'The obligatory xkcd')
+## Attribution
 
+This project is based on the original [`cheat/cheat`](https://github.com/cheat/cheat)
+project, originally created by **Chris Lane**. The original project was forked
+as [`j0nk0/cheat`](https://github.com/j0nk0/cheat), and this pure-Bash
+conversion is developed as a branch of that fork. The original project, fork,
+and author remain fully credited. This branch preserves the original
+command-line concepts while removing the Python runtime dependency and adding
+recursive sheet support.
 
-Example
--------
-The next time you're forced to disarm a nuclear weapon without consulting
-Google, you may run:
+## Requirements
+
+- Bash 3.2 or newer
+- Standard Unix utilities: `find`, `mktemp`, `sed`, `sort`, and `cp`
+- `pygmentize` is optional and only required for syntax highlighting
+
+The project is designed for macOS and Linux. No Python installation is
+required.
+
+This Bash conversion is version `3.0.0`.
+
+## Installation
+
+The installer uses `/usr/local` by default:
+
+```sh
+git clone https://github.com/j0nk0/cheat.git cheat
+cd cheat
+./install.sh
+```
+
+Use another prefix when needed:
+
+```sh
+PREFIX="$HOME/.local" ./install.sh
+```
+
+Make sure the selected `bin` directory is in `PATH`.
+
+The repository can also be used directly. The public command is `bin/cheat`;
+it loads the implementation from `lib/` and bundled sheets from
+`cheat/cheatsheets/`.
+
+You can also invoke it without installing anything:
+
+```sh
+./bin/cheat tar
+```
+
+## Usage
+
+```text
+cheat <cheatsheet>
+cheat -e <cheatsheet>
+cheat -s <keyword>
+cheat -l
+cheat -d
+cheat -v
+cheat -h
+```
+
+Examples:
 
 ```sh
 cheat tar
+cheat -e docker/network
+cheat -s ssh
+cheat -l
+cheat -d
 ```
 
-You will be presented with a cheatsheet resembling:
+Sheet names may contain nested directories, such as `docker/network` or
+`kubernetes/pods`. Hidden files and path components beginning with `__` are
+ignored. Absolute paths and `.` or `..` path components are rejected.
+
+## Configuration
+
+### Default directory
+
+Personal sheets are stored in `~/.cheat` by default. Set `DEFAULT_CHEAT_DIR`
+to use another directory:
 
 ```sh
-# To extract an uncompressed archive: 
-tar -xvf '/path/to/foo.tar'
-
-# To extract a .gz archive:
-tar -xzvf '/path/to/foo.tgz'
-
-# To create a .gz archive:
-tar -czvf '/path/to/foo.tgz' '/path/to/foo/'
-
-# To extract a .bz2 archive:
-tar -xjvf '/path/to/foo.tgz'
-
-# To create a .bz2 archive:
-tar -cjvf '/path/to/foo.tgz' '/path/to/foo/'
+export DEFAULT_CHEAT_DIR="$HOME/Documents/cheats"
 ```
 
-To see what cheatsheets are available, run `cheat -l`.
+The directory is created automatically when needed.
 
-Note that, while `cheat` was designed primarily for \*nix system administrators,
-it is agnostic as to what content it stores. If you would like to use `cheat`
-to store notes on your favorite cookie recipes, feel free.
+### Additional directories
 
-
-Installing
-----------
-It is recommended to install `cheat` with `pip`:
+Use `CHEATPATH` for one or more colon-separated sheet directories:
 
 ```sh
-[sudo] pip install cheat
+export CHEATPATH="$HOME/cheats/community:$HOME/cheats/work"
 ```
 
-[Other installation methods are available][installing].
+The effective precedence, from lowest to highest, is:
 
+1. The default directory
+2. Bundled sheets
+3. Directories in `CHEATPATH`, from left to right
 
-Modifying Cheatsheets
----------------------
-The value of `cheat` is that it allows you to create your own cheatsheets - the
-defaults are meant to serve only as a starting point, and can and should be
-modified.
+Therefore, a sheet in the last matching `CHEATPATH` directory wins. Use
+`cheat -d` to display the configured directories in their search order.
 
-Cheatsheets are stored in the `~/.cheat/` directory, and are named on a
-per-keyphrase basis. In other words, the content for the `tar` cheatsheet lives
-in the `~/.cheat/tar` file.
-
-Provided that you have a `CHEAT_EDITOR`, `VISUAL`, or `EDITOR` environment
-variable set, you may edit cheatsheets with:
+Set `CHEAT_BUNDLED_DIR` to override the bundled-sheet directory:
 
 ```sh
-cheat -e foo
+export CHEAT_BUNDLED_DIR="$HOME/cheats/bundled"
 ```
 
-If the `foo` cheatsheet already exists, it will be opened for editing.
-Otherwise, it will be created automatically.
+### Editing
 
-After you've customized your cheatsheets, I urge you to track `~/.cheat/` along
-with your [dotfiles][].
-
-
-Configuring
------------
-
-### Setting a DEFAULT_CHEAT_DIR ###
-Personal cheatsheets are saved in the `~/.cheat` directory by default, but you
-can specify a different default by exporting a `DEFAULT_CHEAT_DIR` environment
-variable:
+`cheat -e name` uses `CHEAT_EDITOR`, then `VISUAL`, then `EDITOR`:
 
 ```sh
-export DEFAULT_CHEAT_DIR='/path/to/my/cheats'
+export CHEAT_EDITOR="vim"
+cheat -e git
 ```
 
-### Setting a CHEATPATH ###
-You can additionally instruct `cheat` to look for cheatsheets in other
-directories by exporting a `CHEATPATH` environment variable:
+New sheets are created in the default directory. If an existing sheet comes
+from the bundled directory or `CHEATPATH`, it is copied into the default
+directory before editing. This keeps personal changes separate from shared or
+bundled sheets.
+
+### Syntax highlighting
+
+Set `CHEATCOLORS` to enable highlighting through `pygmentize`:
 
 ```sh
-export CHEATPATH='/path/to/my/cheats'
+export CHEATCOLORS=1
+cheat tar
 ```
 
-You may, of course, append multiple directories to your `CHEATPATH`:
+Sheets use the Bash lexer by default. A fenced sheet can select another lexer:
 
-```sh
-export CHEATPATH="$CHEATPATH:/path/to/more/cheats"
-```
-
-You may view which directories are on your `CHEATPATH` with `cheat -d`.
-
-### Enabling Syntax Highlighting ###
-`cheat` can optionally apply syntax highlighting to your cheatsheets. To enable
-syntax highlighting, export a `CHEATCOLORS` environment variable:
-
-```sh
-export CHEATCOLORS=true
-```
-
-#### Specifying a Syntax Highlighter ####
-You may manually specify which syntax highlighter to use for each cheatsheet by
-wrapping the sheet's contents in a [Github-Flavored Markdown code-fence][gfm].
-
-Example:
-
-<pre>
+````text
 ```sql
--- to select a user by ID
-SELECT *
-FROM Users
-WHERE id = 100
+SELECT id, name FROM users;
 ```
-</pre>
+````
 
-If no syntax highlighter is specified, the `bash` highlighter will be used by
-default.
+If `pygmentize` is unavailable, or a lexer is unknown, the sheet is printed as
+plain text or with the Bash fallback.
 
+## Shell completion
 
-See Also:
----------
-- [Enabling Command-line Autocompletion][autocompletion]
-- [Related Projects][related-projects]
+Completion scripts for Bash, Fish, and Zsh are in
+`cheat/autocompletion/`. Install or source the script appropriate for your
+shell according to its completion conventions.
 
+## Tests
 
-[autocompletion]:   https://github.com/chrisallenlane/cheat/wiki/Enabling-Command-line-Autocompletion
-[dotfiles]:         http://dotfiles.github.io/
-[gfm]:              https://help.github.com/articles/creating-and-highlighting-code-blocks/
-[installing]:       https://github.com/chrisallenlane/cheat/wiki/Installing
-[related-projects]: https://github.com/chrisallenlane/cheat/wiki/Related-Projects
+The repository includes a focused Bash test script at `tests/test.sh`. It
+covers nested sheets, path precedence, reading sheets, and traversal
+protection. Run it from the repository root with:
+
+```sh
+bash tests/test.sh
+```
+
+## Project layout
+
+```text
+bin/cheat                  Public command
+bin/cheat.sh               CLI implementation
+install.sh                 Local installation script
+lib/utils.sh               Errors, editors, and highlighting
+lib/sheets.sh              Paths, discovery, listing, and search
+lib/sheet.sh               Individual sheet operations
+cheat/cheatsheets/         Bundled sheets
+cheat/autocompletion/      Shell completion scripts
+licenses/                  MIT and GPLv3 license texts
+tests/test.sh              Focused Bash test suite
+```
+
+## License
+
+This project follows the original project's dual MIT/GPLv3 licensing. See
+[LICENSE](LICENSE) for the licensing notice and the full terms.
