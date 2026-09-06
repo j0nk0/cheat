@@ -1,5 +1,16 @@
-*.pyc
-MANIFEST
-build
-cheat.egg-info
-dist
+# macOS and editor files
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Local Python and packaging artifacts from the original implementation
+__pycache__/
+*.py[cod]
+build/
+dist/
+*.egg-info/
+
+# Local test output
+coverage/
+.coverage

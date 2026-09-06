@@ -1,8 +1,10 @@
 function _cheat_autocomplete {
-    sheets=$(cheat -l | cut -d' ' -f1)
+    local sheets
+
+    sheets=$(cheat -l | awk '{print $1}')
     COMPREPLY=()
-    if [ $COMP_CWORD = 1 ]; then
-	COMPREPLY=(`compgen -W "$sheets" -- $2`)
+    if [[ $COMP_CWORD -eq 1 ]]; then
+        COMPREPLY=($(compgen -W "$sheets" -- "${COMP_WORDS[1]}"))
     fi
 }
 
